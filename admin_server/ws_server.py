@@ -85,10 +85,22 @@ async def handle_client(websocket):
             msg_type = message.get("type")
 
             if msg_type == "register":
-                # First message a client sends after connecting: identifies itself
+                # First message a client sends after connecting: identifies itself.
+                # Don't blindly reset status — a computer may still have an active
+                # session (Occupied) or be Locked/Maintenance even if the client
+                # briefly disconnected and reconnected.
                 computer_id = message.get("computer_id")
                 connected_clients[computer_id] = websocket
-                update_computer_status(computer_id, "Available")
+                db = SessionLocal()
+                try:
+                    computer = db.query(Computer).filter_by(ComputerID=computer_id).first()
+                    if computer and computer.CurrentStatus == "Offline":
+                        computer.CurrentStatus = "Available"
+                        db.commit()
+                        if on_status_change:
+                            on_status_change()
+                finally:
+                    db.close()
                 print(f"[CONNECTED] Computer {computer_id}")
 
             elif msg_type == "heartbeat":
