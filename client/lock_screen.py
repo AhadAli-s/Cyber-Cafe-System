@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeyEvent
 
 
 class LockScreen(QWidget):
@@ -8,7 +9,6 @@ class LockScreen(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
         )
         self.setStyleSheet("background-color: black;")
 
@@ -23,11 +23,21 @@ class LockScreen(QWidget):
         self.message_label.setStyleSheet("color: #cccccc; font-size: 18px;")
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.dev_hint_label = QLabel("[DEV MODE] Press ESC to force-unlock")
+        self.dev_hint_label.setStyleSheet("color: #555555; font-size: 12px;")
+        self.dev_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         layout.addWidget(self.title_label)
         layout.addWidget(self.message_label)
+        layout.addWidget(self.dev_hint_label)
         self.setLayout(layout)
 
         self.hide()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        # DEV-ONLY SAFETY VALVE: remove this before implementing real System Lockdown (Section 3.4)
+        if event.key() == Qt.Key.Key_Escape:
+            self.unlock()
 
     def show_locked(self, message: str = None):
         if message:
