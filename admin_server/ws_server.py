@@ -7,7 +7,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
 import websockets
 from database import SessionLocal
-from models import Computer
+from models import Computer, PricingPlan
+import session_manager
 
 HOST = "0.0.0.0"
 PORT = 8765
@@ -36,6 +37,40 @@ def update_computer_status(computer_id: int, status: str):
                 on_status_change()
     finally:
         db.close()
+
+
+async def push_session_update(websocket, computer_id: int):
+    """Sends the client its current session state (elapsed time, cost) so the
+    Session HUD can display it. Sends session: null if no active session."""
+    session = session_manager.get_active_session_for_computer(computer_id)
+
+    if session is None:
+        payload = {"type": "session_update", "session": None}
+    else:
+        db = SessionLocal()
+        try:
+            plan = None
+            if session.PlanID:
+                plan = db.query(PricingPlan).filter_by(PlanID=session.PlanID).first()
+            elapsed_minutes = session_manager.get_elapsed_minutes(session)
+            cost = session_manager.calculate_cost(session, plan)
+            payload = {
+                "type": "session_update",
+                "session": {
+                    "session_id": session.SessionID,
+                    "session_type": session.SessionType,
+                    "plan_name": plan.PlanName if plan else "Standard",
+                    "elapsed_minutes": round(elapsed_minutes, 1),
+                    "cost": cost,
+                }
+            }
+        finally:
+            db.close()
+
+    try:
+        await websocket.send(json.dumps(payload))
+    except websockets.exceptions.ConnectionClosed:
+        pass
 
 
 async def handle_client(websocket):
@@ -71,6 +106,23 @@ async def handle_client(websocket):
                                 on_status_change()
                     finally:
                         db.close()
+                    await push_session_update(websocket, computer_id)
+
+            elif msg_type == "end_session_request":
+                # Client's HUD "Logout" button was clicked
+                computer_id = message.get("computer_id")
+                if computer_id is not None:
+                    session = session_manager.get_active_session_for_computer(computer_id)
+                    if session:
+                        session_manager.end_session(session.SessionID)
+                        update_computer_status(computer_id, "Available")
+                        await push_session_update(websocket, computer_id)
+
+            elif msg_type == "extra_time_request":
+                # Client's HUD "Request Extra Time" button was clicked.
+                # TODO: surface this as a Live Notification in the Admin UI (Section 3.2)
+                computer_id = message.get("computer_id")
+                print(f"[EXTRA TIME REQUESTED] Computer {computer_id}")
 
             elif msg_type == "status_update":
                 # Client reporting a state change, e.g. session started/ended
@@ -126,6 +178,20 @@ async def start_server():
 def run_server_in_thread():
     """Runs the asyncio event loop in a background thread, called from the GUI"""
     asyncio.run(start_server())
+
+
+def push_session_update_sync(computer_id: int):
+    """Call from the PyQt (main) thread after starting/ending a session via
+    session_manager, so the client's HUD updates immediately instead of
+    waiting for the next heartbeat cycle."""
+    if server_loop is None:
+        return
+    websocket = connected_clients.get(computer_id)
+    if websocket is None:
+        return
+    asyncio.run_coroutine_threadsafe(
+        push_session_update(websocket, computer_id), server_loop
+    )
 
 
 def send_command_sync(computer_id: int, action: str, extra: dict = None):
