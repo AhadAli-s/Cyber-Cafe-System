@@ -6,14 +6,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QGridLayout, QLabel,
-    QPushButton, QVBoxLayout, QMenu, QMessageBox
+    QPushButton, QVBoxLayout, QMenu, QMessageBox, QDialog,
+    QComboBox, QDialogButtonBox, QFormLayout
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QAction
 
 from database import SessionLocal
-from models import Computer
+from models import Computer, PricingPlan
 import ws_server
+import session_manager
 
 STATUS_COLORS = {
     "Available": "#2ecc71",
@@ -22,6 +24,43 @@ STATUS_COLORS = {
     "Offline": "#7f8c8d",
     "Maintenance": "#9b59b6",
 }
+
+
+class StartSessionDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Start Session")
+
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(["Postpaid", "Prepaid"])
+
+        self.plan_combo = QComboBox()
+        db = SessionLocal()
+        try:
+            self.plans = db.query(PricingPlan).all()
+        finally:
+            db.close()
+        for plan in self.plans:
+            label = f"{plan.PlanName} (Rs.{plan.HourlyRate}/hr)"
+            self.plan_combo.addItem(label, userData=plan.PlanID)
+
+        form = QFormLayout()
+        form.addRow("Session Type:", self.type_combo)
+        form.addRow("Pricing Plan:", self.plan_combo)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def get_selection(self):
+        return self.type_combo.currentText(), self.plan_combo.currentData()
 
 
 class SignalBridge(QObject):
@@ -39,6 +78,62 @@ class PCTile(QPushButton):
         self.update_display()
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_menu)
+        self.clicked.connect(self.handle_left_click)
+
+    def handle_left_click(self):
+        if self.status == "Available":
+            self.start_session_flow()
+        elif self.status == "Occupied":
+            self.checkout_flow()
+        else:
+            QMessageBox.information(
+                self, "Not Available",
+                f"{self.pc_name} is currently {self.status}. "
+                "Sessions can only be started when a PC is Available."
+            )
+
+    def start_session_flow(self):
+        dialog = StartSessionDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            session_type, plan_id = dialog.get_selection()
+            success, message, session_id = session_manager.start_session(
+                self.computer_id, session_type=session_type, plan_id=plan_id
+            )
+            if success:
+                ws_server.push_session_update_sync(self.computer_id)
+                self.window().refresh_grid()
+            else:
+                QMessageBox.warning(self, "Could Not Start Session", message)
+
+    def checkout_flow(self):
+        session = session_manager.get_active_session_for_computer(self.computer_id)
+        if session is None:
+            QMessageBox.warning(self, "No Active Session", "No session found for this PC.")
+            return
+
+        db = SessionLocal()
+        try:
+            plan = db.query(PricingPlan).filter_by(PlanID=session.PlanID).first() if session.PlanID else None
+        finally:
+            db.close()
+
+        elapsed = session_manager.get_elapsed_minutes(session)
+        estimated_cost = session_manager.calculate_cost(session, plan)
+
+        reply = QMessageBox.question(
+            self, "Checkout",
+            f"{self.pc_name}\n\nElapsed: {elapsed:.1f} minutes\n"
+            f"Estimated cost: Rs.{estimated_cost:.2f}\n\nEnd this session and check out?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            success, message, total_cost = session_manager.end_session(session.SessionID)
+            if success:
+                ws_server.push_session_update_sync(self.computer_id)
+                QMessageBox.information(self, "Checked Out", f"Total charged: Rs.{total_cost:.2f}")
+                self.window().refresh_grid()
+            else:
+                QMessageBox.warning(self, "Checkout Failed", message)
 
     def update_display(self):
         color = STATUS_COLORS.get(self.status, "#7f8c8d")
