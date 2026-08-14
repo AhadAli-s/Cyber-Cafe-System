@@ -69,11 +69,12 @@ class SignalBridge(QObject):
 
 
 class PCTile(QPushButton):
-    def __init__(self, computer_id, pc_name, status, parent=None):
+    def __init__(self, computer_id, pc_name, status, refresh_callback, parent=None):
         super().__init__(parent)
         self.computer_id = computer_id
         self.pc_name = pc_name
         self.status = status
+        self.refresh_callback = refresh_callback
         self.setFixedSize(140, 100)
         self.update_display()
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -101,7 +102,7 @@ class PCTile(QPushButton):
             )
             if success:
                 ws_server.push_session_update_sync(self.computer_id)
-                QTimer.singleShot(0, self.window().refresh_grid)
+                QTimer.singleShot(0, self.refresh_callback)
             else:
                 QMessageBox.warning(self, "Could Not Start Session", message)
 
@@ -131,7 +132,7 @@ class PCTile(QPushButton):
             if success:
                 ws_server.push_session_update_sync(self.computer_id)
                 QMessageBox.information(self, "Checked Out", f"Total charged: Rs.{total_cost:.2f}")
-                QTimer.singleShot(0, self.window().refresh_grid)
+                QTimer.singleShot(0, self.refresh_callback)
             else:
                 QMessageBox.warning(self, "Checkout Failed", message)
 
@@ -221,7 +222,7 @@ class MainWindow(QMainWindow):
         columns = 5
         for index, computer in enumerate(computers):
             row, col = divmod(index, columns)
-            tile = PCTile(computer.ComputerID, computer.PC_Name, computer.CurrentStatus)
+            tile = PCTile(computer.ComputerID, computer.PC_Name, computer.CurrentStatus, self.refresh_grid)
             self.layout.addWidget(tile, row, col)
             self.tiles[computer.ComputerID] = tile
 
