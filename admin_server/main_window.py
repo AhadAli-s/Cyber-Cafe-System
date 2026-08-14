@@ -101,7 +101,7 @@ class PCTile(QPushButton):
             )
             if success:
                 ws_server.push_session_update_sync(self.computer_id)
-                self.window().refresh_grid()
+                QTimer.singleShot(0, self.window().refresh_grid)
             else:
                 QMessageBox.warning(self, "Could Not Start Session", message)
 
@@ -131,7 +131,7 @@ class PCTile(QPushButton):
             if success:
                 ws_server.push_session_update_sync(self.computer_id)
                 QMessageBox.information(self, "Checked Out", f"Total charged: Rs.{total_cost:.2f}")
-                self.window().refresh_grid()
+                QTimer.singleShot(0, self.window().refresh_grid)
             else:
                 QMessageBox.warning(self, "Checkout Failed", message)
 
@@ -238,4 +238,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        input("Press Enter to exit...")
