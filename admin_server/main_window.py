@@ -1,6 +1,7 @@
 import sys
 import os
 import threading
+import billing_manager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
@@ -62,7 +63,85 @@ class StartSessionDialog(QDialog):
     def get_selection(self):
         return self.type_combo.currentText(), self.plan_combo.currentData()
 
+class PrintJobDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Log Print Job")
 
+        self.pages_input = QComboBox()
+        self.pages_input.setEditable(True)
+        self.pages_input.addItems(["1", "2", "5", "10", "20"])
+
+        self.color_combo = QComboBox()
+        self.color_combo.addItems(["Black & White", "Color"])
+
+        self.size_combo = QComboBox()
+        self.size_combo.addItems(["A4", "A3"])
+
+        form = QFormLayout()
+        form.addRow("Pages:", self.pages_input)
+        form.addRow("Type:", self.color_combo)
+        form.addRow("Paper Size:", self.size_combo)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def get_values(self):
+        try:
+            pages = int(self.pages_input.currentText())
+        except ValueError:
+            pages = 0
+        is_color = self.color_combo.currentText() == "Color"
+        paper_size = self.size_combo.currentText()
+        return pages, is_color, paper_size
+
+class POSSaleDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Sell Item")
+
+        self.item_combo = QComboBox()
+        self.items = billing_manager.get_inventory_items()
+        for item in self.items:
+            label = f"{item.ItemName} — Rs.{item.SalePrice} (Stock: {item.StockQuantity})"
+            self.item_combo.addItem(label, userData=item.ItemID)
+
+        self.qty_input = QComboBox()
+        self.qty_input.setEditable(True)
+        self.qty_input.addItems(["1", "2", "3", "5"])
+
+        form = QFormLayout()
+        form.addRow("Item:", self.item_combo)
+        form.addRow("Quantity:", self.qty_input)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def get_values(self):
+        item_id = self.item_combo.currentData()
+        try:
+            qty = int(self.qty_input.currentText())
+        except ValueError:
+            qty = 0
+        return item_id, qty
+
+    
 class SignalBridge(QObject):
     """Lets the background asyncio thread safely trigger a GUI refresh"""
     status_changed = pyqtSignal()
@@ -159,12 +238,16 @@ class PCTile(QPushButton):
         logoff_action = QAction("Log Off", self)
         restart_action = QAction("Restart", self)
         shutdown_action = QAction("Shutdown", self)
+        print_action = QAction("Log Print Job", self)
+        pos_action = QAction("Sell Item (POS)", self)
 
         lock_action.triggered.connect(lambda: self.send_command("lock"))
         unlock_action.triggered.connect(lambda: self.send_command("unlock"))
         logoff_action.triggered.connect(lambda: self.send_command("logoff"))
         restart_action.triggered.connect(lambda: self.send_command("restart"))
         shutdown_action.triggered.connect(lambda: self.send_command("shutdown"))
+        print_action.triggered.connect(self.log_print_job)
+        pos_action.triggered.connect(self.sell_item)
 
         menu.addAction(lock_action)
         menu.addAction(unlock_action)
@@ -172,7 +255,51 @@ class PCTile(QPushButton):
         menu.addSeparator()
         menu.addAction(restart_action)
         menu.addAction(shutdown_action)
+        menu.addSeparator()
+        menu.addAction(print_action)
+        menu.addAction(pos_action)
         menu.exec(self.mapToGlobal(pos))
+
+    def _get_active_session_id(self):
+        session = session_manager.get_active_session_for_computer(self.computer_id)
+        if session is None:
+            QMessageBox.warning(
+                self, "No Active Session",
+                "This PC has no active session. Start a session before adding charges."
+            )
+            return None
+        return session.SessionID
+
+    def log_print_job(self):
+        session_id = self._get_active_session_id()
+        if session_id is None:
+            return
+        dialog = PrintJobDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            pages, is_color, paper_size = dialog.get_values()
+            success, message, charge = billing_manager.record_print_job(
+                session_id, pages, is_color, paper_size
+            )
+            if success:
+                QMessageBox.information(self, "Print Job Logged", f"Charged: Rs.{charge:.2f}")
+            else:
+                QMessageBox.warning(self, "Failed", message)
+
+    def sell_item(self):
+        session_id = self._get_active_session_id()
+        if session_id is None:
+            return
+        dialog = POSSaleDialog(self)
+        if not dialog.items:
+            QMessageBox.information(self, "No Inventory", "No inventory items found.")
+            return
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            item_id, qty = dialog.get_values()
+            success, message, charge = billing_manager.record_pos_sale(session_id, item_id, qty)
+            if success:
+                QMessageBox.information(self, "Sale Recorded", f"{message}\nCharged: Rs.{charge:.2f}")
+            else:
+                QMessageBox.warning(self, "Failed", message)
 
     def send_command(self, action):
         success, message = ws_server.send_command_sync(self.computer_id, action)
