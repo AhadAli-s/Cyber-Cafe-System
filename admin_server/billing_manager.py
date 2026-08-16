@@ -18,10 +18,6 @@ PRINT_RATES = {
 
 def record_print_job(session_id: int, pages: int, is_color: bool, paper_size: str = "A4",
                       payment_method: str = "Cash"):
-    """
-    Logs a print/scan job, charges it immediately as a Transaction tied to the session.
-    Returns (success, message, total_charge)
-    """
     if pages <= 0:
         return False, "Page count must be positive", None
 
@@ -65,7 +61,6 @@ def record_print_job(session_id: int, pages: int, is_color: bool, paper_size: st
 
 
 def get_inventory_items():
-    """Returns all inventory items for populating a POS selection list"""
     db = SessionLocal()
     try:
         return db.query(Inventory).order_by(Inventory.ItemName).all()
@@ -74,11 +69,6 @@ def get_inventory_items():
 
 
 def record_pos_sale(session_id: int, item_id: int, quantity: int, payment_method: str = "Cash"):
-    """
-    Sells `quantity` units of an inventory item, decrements stock,
-    and charges it as a Transaction tied to the session.
-    Returns (success, message, total_charge)
-    """
     if quantity <= 0:
         return False, "Quantity must be positive", None
 
@@ -117,8 +107,6 @@ def record_pos_sale(session_id: int, item_id: int, quantity: int, payment_method
 
 
 def get_session_extra_charges(session_id: int) -> float:
-    """Sums all print + POS charges (Transactions beyond the final time-cost payment)
-    for a session — useful for showing a running total during checkout."""
     db = SessionLocal()
     try:
         transactions = db.query(Transaction).filter_by(SessionID=session_id).all()
