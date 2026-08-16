@@ -1,7 +1,6 @@
 import sys
 import os
 import threading
-import billing_manager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
@@ -17,6 +16,9 @@ from database import SessionLocal
 from models import Computer, PricingPlan
 import ws_server
 import session_manager
+import billing_manager
+import auth_manager
+from login_dialog import LoginDialog
 
 STATUS_COLORS = {
     "Available": "#2ecc71",
@@ -63,6 +65,7 @@ class StartSessionDialog(QDialog):
     def get_selection(self):
         return self.type_combo.currentText(), self.plan_combo.currentData()
 
+
 class PrintJobDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -103,6 +106,7 @@ class PrintJobDialog(QDialog):
         paper_size = self.size_combo.currentText()
         return pages, is_color, paper_size
 
+
 class POSSaleDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -141,7 +145,7 @@ class POSSaleDialog(QDialog):
             qty = 0
         return item_id, qty
 
-    
+
 class SignalBridge(QObject):
     """Lets the background asyncio thread safely trigger a GUI refresh"""
     status_changed = pyqtSignal()
@@ -310,7 +314,10 @@ class PCTile(QPushButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Cyber Café Admin — PC Management Grid")
+        self.setWindowTitle(
+            f"Cyber Café Admin — {auth_manager.current_employee['FullName']} "
+            f"({auth_manager.current_employee['Role']})"
+        )
         self.resize(800, 500)
 
         self.signal_bridge = SignalBridge()
@@ -360,6 +367,11 @@ def main():
     server_thread.start()
 
     app = QApplication(sys.argv)
+
+    login = LoginDialog()
+    if login.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)  # login cancelled/closed
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
