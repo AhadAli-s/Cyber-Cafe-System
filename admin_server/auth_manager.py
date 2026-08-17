@@ -5,8 +5,8 @@ import bcrypt
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
 from database import SessionLocal
-from models import Employee, AuditLog
-from datetime import datetime, timezone
+from models import Employee, AuditLog, utc_now
+from datetime import datetime
 
 # Currently logged-in employee, set after successful login.
 # Simple module-level state since only one person operates the Admin app at a time.
@@ -79,7 +79,7 @@ def log_action(employee_id: int, description: str, ip_address: str = None):
         entry = AuditLog(
             EmployeeID=employee_id,
             ActionDescription=description,
-            Timestamp=datetime.now(timezone.utc),
+            Timestamp=utc_now(),
             IPAddress=ip_address
         )
         db.add(entry)

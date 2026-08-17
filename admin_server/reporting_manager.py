@@ -1,11 +1,11 @@
 import sys
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
 from database import SessionLocal
-from models import Transaction, AuditLog, Employee
+from models import Transaction, AuditLog, Employee, utc_now
 
 
 def get_revenue_summary(start_date: datetime, end_date: datetime):
@@ -36,7 +36,7 @@ def get_revenue_summary(start_date: datetime, end_date: datetime):
 
 def get_date_range_for_preset(preset: str):
     """Returns (start_date, end_date) datetimes for 'Today', 'This Week', 'This Month'."""
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     if preset == "Today":

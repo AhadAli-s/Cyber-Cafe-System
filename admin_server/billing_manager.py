@@ -1,11 +1,11 @@
 import sys
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
 from database import SessionLocal
-from models import PrintLog, Inventory, Transaction, Session
+from models import PrintLog, Inventory, Transaction, Session, utc_now
 
 # Rs. per page, by (paper_size, is_color)
 PRINT_RATES = {
@@ -46,7 +46,7 @@ def record_print_job(session_id: int, pages: int, is_color: bool, paper_size: st
             SessionID=session_id,
             AmountPaid=total_charge,
             PaymentMethod=payment_method,
-            Timestamp=datetime.now(timezone.utc),
+            Timestamp=utc_now(),
             Category="Print"
         )
         db.add(transaction)
@@ -93,7 +93,7 @@ def record_pos_sale(session_id: int, item_id: int, quantity: int, payment_method
             SessionID=session_id,
             AmountPaid=total_charge,
             PaymentMethod=payment_method,
-            Timestamp=datetime.now(timezone.utc),
+            Timestamp=utc_now(),
             Category="POS"
         )
         db.add(transaction)
