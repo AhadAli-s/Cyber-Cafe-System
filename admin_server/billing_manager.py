@@ -1,6 +1,6 @@
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
@@ -46,7 +46,8 @@ def record_print_job(session_id: int, pages: int, is_color: bool, paper_size: st
             SessionID=session_id,
             AmountPaid=total_charge,
             PaymentMethod=payment_method,
-            Timestamp=datetime.utcnow()
+            Timestamp=datetime.now(timezone.utc),
+            Category="Print"
         )
         db.add(transaction)
 
@@ -92,7 +93,8 @@ def record_pos_sale(session_id: int, item_id: int, quantity: int, payment_method
             SessionID=session_id,
             AmountPaid=total_charge,
             PaymentMethod=payment_method,
-            Timestamp=datetime.utcnow()
+            Timestamp=datetime.now(timezone.utc),
+            Category="POS"
         )
         db.add(transaction)
 
