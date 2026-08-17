@@ -1,6 +1,6 @@
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
 
@@ -30,7 +30,7 @@ def start_session(computer_id: int, session_type: str = "Postpaid",
             UserID=user_id,
             PlanID=plan_id,
             SessionType=session_type,
-            StartTime=datetime.utcnow(),
+            StartTime=datetime.now(timezone.utc),
             TotalCost=0.0
         )
         db.add(new_session)
@@ -52,7 +52,7 @@ def calculate_cost(session: Session, plan: PricingPlan) -> float:
     Package plans (IsPackage=True) charge the flat plan rate regardless of
     exact elapsed time, as long as MinDuration is met.
     """
-    end_time = session.EndTime or datetime.utcnow()
+    end_time = session.EndTime or datetime.now(timezone.utc)
     elapsed_minutes = (end_time - session.StartTime).total_seconds() / 60.0
 
     if plan is None:
@@ -72,7 +72,7 @@ def calculate_cost(session: Session, plan: PricingPlan) -> float:
 
 
 def get_elapsed_minutes(session: Session) -> float:
-    end_time = session.EndTime or datetime.utcnow()
+    end_time = session.EndTime or datetime.now(timezone.utc)
     return (end_time - session.StartTime).total_seconds() / 60.0
 
 
@@ -91,7 +91,7 @@ def end_session(session_id: int, payment_method: str = "Cash"):
         if session.EndTime is not None:
             return False, "Session already ended", None
 
-        session.EndTime = datetime.utcnow()
+        session.EndTime = datetime.now(timezone.utc)
 
         plan = None
         if session.PlanID:
@@ -105,7 +105,8 @@ def end_session(session_id: int, payment_method: str = "Cash"):
             SessionID=session.SessionID,
             AmountPaid=total_cost,
             PaymentMethod=payment_method,
-            Timestamp=datetime.utcnow()
+            Timestamp=datetime.now(timezone.utc),
+            Category="SessionTime"
         )
         db.add(transaction)
 
