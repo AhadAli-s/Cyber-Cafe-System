@@ -19,6 +19,7 @@ import session_manager
 import billing_manager
 import auth_manager
 from login_dialog import LoginDialog
+from reports_window import ReportsWindow
 
 STATUS_COLORS = {
     "Available": "#2ecc71",
@@ -320,6 +321,8 @@ class MainWindow(QMainWindow):
         )
         self.resize(800, 500)
 
+        self._build_menu_bar()
+
         self.signal_bridge = SignalBridge()
         self.signal_bridge.status_changed.connect(self.refresh_grid)
         ws_server.set_status_change_callback(
@@ -338,6 +341,30 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.refresh_grid)
         self.timer.start(5000)
+
+    def _build_menu_bar(self):
+        menu_bar = self.menuBar()
+        admin_menu = menu_bar.addMenu("Admin")
+
+        reports_action = QAction("Reports && Audit Trail", self)
+        reports_action.triggered.connect(self.open_reports)
+        if not auth_manager.has_permission("view_reports"):
+            reports_action.setEnabled(False)
+            reports_action.setToolTip("Your role does not have access to reports")
+        admin_menu.addAction(reports_action)
+
+        logout_action = QAction("Log Out", self)
+        logout_action.triggered.connect(self.handle_logout)
+        admin_menu.addAction(logout_action)
+
+    def open_reports(self):
+        dialog = ReportsWindow(self)
+        dialog.exec()
+
+    def handle_logout(self):
+        auth_manager.logout()
+        QMessageBox.information(self, "Logged Out", "You have been logged out. Please restart the app to log in again.")
+        self.close()
 
     def refresh_grid(self):
         db = SessionLocal()
