@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeyEvent
 
+import lockdown
+
 
 class LockScreen(QWidget):
     def __init__(self):
@@ -23,7 +25,7 @@ class LockScreen(QWidget):
         self.message_label.setStyleSheet("color: #cccccc; font-size: 18px;")
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.dev_hint_label = QLabel("[DEV MODE] Press ESC to force-unlock")
+        self.dev_hint_label = QLabel("Staff: press ESC to override lock")
         self.dev_hint_label.setStyleSheet("color: #555555; font-size: 12px;")
         self.dev_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -35,7 +37,9 @@ class LockScreen(QWidget):
         self.hide()
 
     def keyPressEvent(self, event: QKeyEvent):
-        # DEV-ONLY SAFETY VALVE: remove this before implementing real System Lockdown (Section 3.4)
+        # Kept intentionally as a permanent staff override, not just a dev convenience —
+        # gives front-desk staff a local way to clear a stuck lock without needing the
+        # Admin app if something goes wrong.
         if event.key() == Qt.Key.Key_Escape:
             self.unlock()
 
@@ -45,6 +49,10 @@ class LockScreen(QWidget):
         self.showFullScreen()
         self.activateWindow()
         self.raise_()
+        try:
+            lockdown.install_hook()
+        except Exception as e:
+            print(f"[LOCKDOWN] Could not enable keyboard blocking: {e}")
 
     def show_message_only(self, text: str):
         """For remote 'Send Message' command — briefly overlays text without full lockdown state"""
@@ -56,3 +64,4 @@ class LockScreen(QWidget):
 
     def unlock(self):
         self.hide()
+        lockdown.uninstall_hook()
