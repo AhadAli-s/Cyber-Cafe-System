@@ -2,13 +2,19 @@ import sys
 import os
 import threading
 import subprocess
+import atexit
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSignal
 
 import ws_client
+import lockdown
 from lock_screen import LockScreen
 from hud import SessionHUD
+
+# Safety net: no matter how the process exits (crash, close, Ctrl+C),
+# make sure the keyboard hook is never left installed.
+atexit.register(lockdown.uninstall_hook)
 
 
 class CommandBridge(QObject):
