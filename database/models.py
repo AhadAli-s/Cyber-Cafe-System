@@ -8,6 +8,12 @@ from sqlalchemy.orm import relationship, declarative_base
 Base = declarative_base()
 
 
+def utc_now():
+    """Naive UTC datetime — matches DB columns (TIMESTAMP WITHOUT TIME ZONE).
+    Avoids the deprecated datetime.utcnow() while staying naive for consistent comparisons."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -16,7 +22,7 @@ class User(Base):
     PasswordHash = Column(String(255), nullable=False)
     PrepaidBalance = Column(Float, default=0.0)
     MemberTier = Column(String(20), default="Standard")
-    CreatedAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    CreatedAt = Column(DateTime, default=utc_now)
 
     sessions = relationship("Session", back_populates="user")
 
@@ -66,7 +72,7 @@ class Session(Base):
     ComputerID = Column(Integer, ForeignKey("computers.ComputerID"), nullable=False)
     UserID = Column(Integer, ForeignKey("users.UserID"), nullable=True)  # nullable for guest sessions
     PlanID = Column(Integer, ForeignKey("pricing_plans.PlanID"), nullable=True)
-    StartTime = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    StartTime = Column(DateTime, default=utc_now)
     EndTime = Column(DateTime, nullable=True)
     SessionType = Column(String(10), default="Postpaid")  # Prepaid, Postpaid
     TotalCost = Column(Float, default=0.0)
@@ -85,7 +91,7 @@ class Transaction(Base):
     SessionID = Column(Integer, ForeignKey("sessions.SessionID"), nullable=False)
     AmountPaid = Column(Float, nullable=False)
     PaymentMethod = Column(String(20), default="Cash")
-    Timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    Timestamp = Column(DateTime, default=utc_now)
     Category = Column(String(20), default="SessionTime")  # SessionTime, Print, POS
 
     session = relationship("Session", back_populates="transactions")
@@ -120,7 +126,7 @@ class AuditLog(Base):
     LogID = Column(Integer, primary_key=True, autoincrement=True)
     EmployeeID = Column(Integer, ForeignKey("employees.EmployeeID"), nullable=False)
     ActionDescription = Column(Text, nullable=False)
-    Timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    Timestamp = Column(DateTime, default=utc_now)
     IPAddress = Column(String(45), nullable=True)
 
     employee = relationship("Employee", back_populates="audit_logs")
