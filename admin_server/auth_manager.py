@@ -2,10 +2,10 @@ import sys
 import os
 import bcrypt
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from database import SessionLocal
-from models import Employee, AuditLog, utc_now
+from database.database import SessionLocal
+from database.models import Employee, AuditLog, utc_now
 from datetime import datetime
 
 # Currently logged-in employee, set after successful login.

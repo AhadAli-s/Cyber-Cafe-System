@@ -2,10 +2,10 @@ import sys
 import os
 from datetime import datetime
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from database import SessionLocal
-from models import Session, Computer, User, PricingPlan, Transaction, utc_now
+from database.database import SessionLocal
+from database.models import Session, Computer, User, PricingPlan, Transaction, utc_now
 
 
 def start_session(computer_id: int, session_type: str = "Postpaid",

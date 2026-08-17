@@ -2,10 +2,10 @@ import sys
 import os
 from datetime import datetime, timedelta
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from database import SessionLocal
-from models import Transaction, AuditLog, Employee, utc_now
+from database.database import SessionLocal
+from database.models import Transaction, AuditLog, Employee, utc_now
 
 
 def get_revenue_summary(start_date: datetime, end_date: datetime):

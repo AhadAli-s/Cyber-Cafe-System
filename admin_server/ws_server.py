@@ -3,11 +3,11 @@ import json
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import websockets
-from database import SessionLocal
-from models import Computer, PricingPlan
+from database.database import SessionLocal
+from database.models import Computer, PricingPlan
 import session_manager
 
 HOST = "0.0.0.0"

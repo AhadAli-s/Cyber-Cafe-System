@@ -2,7 +2,7 @@ import sys
 import os
 import threading
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QGridLayout, QLabel,
@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QAction
 
-from database import SessionLocal
-from models import Computer, PricingPlan
+from database.database import SessionLocal
+from database.models import Computer, PricingPlan
 import ws_server
 import session_manager
 import billing_manager

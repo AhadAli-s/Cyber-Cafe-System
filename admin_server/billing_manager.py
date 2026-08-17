@@ -2,10 +2,10 @@ import sys
 import os
 from datetime import datetime
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database"))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from database import SessionLocal
-from models import PrintLog, Inventory, Transaction, Session, utc_now
+from database.database import SessionLocal
+from database.models import PrintLog, Inventory, Transaction, Session, utc_now
 
 # Rs. per page, by (paper_size, is_color)
 PRINT_RATES = {

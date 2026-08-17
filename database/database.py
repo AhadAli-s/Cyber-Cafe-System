@@ -2,7 +2,14 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from models import Base
+
+try:
+    # Used when imported as part of the 'database' package
+    # (e.g. admin_server's "from database.database import ...", or the packaged .exe)
+    from .models import Base
+except ImportError:
+    # Used when seed.py runs database.py flat, e.g. "cd database; python seed.py"
+    from models import Base
 
 load_dotenv()
 
