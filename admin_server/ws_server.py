@@ -26,6 +26,35 @@ def set_status_change_callback(callback):
     on_status_change = callback
 
 
+def reset_all_computers_offline():
+    """
+    Called once when the Admin server starts. At startup we know for certain
+    no clients are connected yet, so any stale 'Available' status left over
+    from a previous crash or force-quit is corrected here.
+
+    Computers with a genuinely active (unended) session are left alone —
+    their status reflects real billing state, not just connection state, and
+    should only change via normal session/lock flows, not a blind reset.
+    """
+    db = SessionLocal()
+    try:
+        computers = db.query(Computer).all()
+        for computer in computers:
+            if computer.CurrentStatus in ("Locked", "Maintenance"):
+                continue  # operator-set states, leave untouched
+
+            active_session = session_manager.get_active_session_for_computer(computer.ComputerID)
+            if active_session is None:
+                computer.CurrentStatus = "Offline"
+            # else: leave as-is (e.g. Occupied) — a real session justifies it
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[STARTUP] Failed to reset computer statuses: {e}")
+    finally:
+        db.close()
+
+
 def update_computer_status(computer_id: int, status: str):
     db = SessionLocal()
     try:
@@ -182,6 +211,7 @@ server_loop = None
 async def start_server():
     global server_loop
     server_loop = asyncio.get_running_loop()
+    reset_all_computers_offline()
     async with websockets.serve(handle_client, HOST, PORT):
         print(f"Admin server listening on ws://{HOST}:{PORT}")
         await asyncio.Future()  # run forever
