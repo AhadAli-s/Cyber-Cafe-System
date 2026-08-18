@@ -58,8 +58,8 @@ Edit `.env` in the project root:
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=cybercafe_db
-DB_USER=cybercafe_admin
-DB_PASSWORD=changeme123
+DB_USER=your_db_username
+DB_PASSWORD=your_db_password
 ```
 
 ### 3.4 Create the PostgreSQL database and user
@@ -67,7 +67,7 @@ DB_PASSWORD=changeme123
 Open **psql** (or SQL Shell) and run:
 
 ```sql
-CREATE USER cybercafe_admin WITH PASSWORD 'changeme123';
+CREATE USER cybercafe_admin WITH PASSWORD 'choose_a_strong_password';
 CREATE DATABASE cybercafe_db OWNER cybercafe_admin;
 ```
 
@@ -166,7 +166,7 @@ pip install pyinstaller
 Run this from the project root (`CyberCafeSystem/`):
 
 ```cmd
-pyinstaller --onefile --name CyberCafeAdmin --paths database admin_server\main_window.py
+pyinstaller --onefile --name CyberCafeAdmin --paths database --paths admin_server admin_server\main_window.py
 ```
 
 This produces `dist\CyberCafeAdmin.exe`.
@@ -198,9 +198,13 @@ from an external file if deploying to many machines).
 
 ### 6.5 Troubleshooting the build
 
-- **"No module named 'database'" at runtime** — the `--paths database` flag
-  wasn't picked up. Re-run the build command from the project root, not from
-  inside `admin_server/`.
+- **"No module named 'database'" or "No module named 'ws_server'" (or any
+  sibling module) at runtime** — the `--paths` flags weren't picked up, or
+  the build was run from the wrong directory. Re-run the full command below
+  from the project root, not from inside `admin_server/`:
+  ```cmd
+  pyinstaller --onefile --name CyberCafeAdmin --paths database --paths admin_server admin_server\main_window.py
+  ```
 - **App exits instantly with no window** — run the exe from a terminal
   (`CyberCafeAdmin.exe` in cmd, not double-click) to see the printed traceback.
 - **"qt.qpa.plugin: could not find the Qt platform plugin"** — rebuild with:
