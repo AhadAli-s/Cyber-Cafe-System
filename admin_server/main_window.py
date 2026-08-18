@@ -7,13 +7,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QGridLayout, QLabel,
     QPushButton, QVBoxLayout, QMenu, QMessageBox, QDialog,
-    QComboBox, QDialogButtonBox, QFormLayout
+    QComboBox, QDialogButtonBox, QFormLayout, QLineEdit
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QAction
 
 from database.database import SessionLocal
-from database.models import Computer, PricingPlan
+from database.models import Computer, PricingPlan, User
 import ws_server
 import session_manager
 import billing_manager
@@ -145,6 +145,48 @@ class POSSaleDialog(QDialog):
         except ValueError:
             qty = 0
         return item_id, qty
+
+
+class TopUpDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Top Up Prepaid Balance")
+
+        self.user_combo = QComboBox()
+        db = SessionLocal()
+        try:
+            self.users = db.query(User).order_by(User.Username).all()
+        finally:
+            db.close()
+        for user in self.users:
+            label = f"{user.Username} (Balance: Rs.{user.PrepaidBalance:.2f})"
+            self.user_combo.addItem(label, userData=user.UserID)
+
+        self.amount_input = QLineEdit()
+        self.amount_input.setPlaceholderText("e.g. 500")
+
+        form = QFormLayout()
+        form.addRow("Member:", self.user_combo)
+        form.addRow("Amount (Rs.):", self.amount_input)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def get_values(self):
+        user_id = self.user_combo.currentData()
+        try:
+            amount = float(self.amount_input.text())
+        except ValueError:
+            amount = 0
+        return user_id, amount
 
 
 class SignalBridge(QObject):
@@ -346,6 +388,10 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
         admin_menu = menu_bar.addMenu("Admin")
 
+        topup_action = QAction("Top Up Prepaid Balance", self)
+        topup_action.triggered.connect(self.open_top_up)
+        admin_menu.addAction(topup_action)
+
         reports_action = QAction("Reports && Audit Trail", self)
         reports_action.triggered.connect(self.open_reports)
         if not auth_manager.has_permission("view_reports"):
@@ -360,6 +406,22 @@ class MainWindow(QMainWindow):
     def open_reports(self):
         dialog = ReportsWindow(self)
         dialog.exec()
+
+    def open_top_up(self):
+        dialog = TopUpDialog(self)
+        if not dialog.users:
+            QMessageBox.information(self, "No Members", "No registered members found.")
+            return
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            user_id, amount = dialog.get_values()
+            if amount <= 0:
+                QMessageBox.warning(self, "Invalid Amount", "Enter a positive amount.")
+                return
+            success, message = session_manager.top_up_prepaid_balance(user_id, amount)
+            if success:
+                QMessageBox.information(self, "Balance Updated", message)
+            else:
+                QMessageBox.warning(self, "Failed", message)
 
     def handle_logout(self):
         auth_manager.logout()
