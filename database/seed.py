@@ -1,6 +1,6 @@
 import bcrypt
 from database import SessionLocal, init_db
-from models import Employee, Computer, PricingPlan, User
+from models import Employee, Computer, PricingPlan, User, Inventory
 
 
 def hash_password(password: str) -> str:
@@ -52,6 +52,18 @@ def seed_data():
                 MemberTier="Standard"
             )
             db.add(member)
+
+        # Sample inventory (snacks + stationery) for POS demo
+        sample_inventory = [
+            {"ItemName": "Cola (Can)", "UnitCost": 40.0, "SalePrice": 80.0, "StockQuantity": 50},
+            {"ItemName": "Chips", "UnitCost": 30.0, "SalePrice": 60.0, "StockQuantity": 40},
+            {"ItemName": "Chocolate Bar", "UnitCost": 50.0, "SalePrice": 100.0, "StockQuantity": 30},
+            {"ItemName": "Notebook", "UnitCost": 60.0, "SalePrice": 120.0, "StockQuantity": 25},
+            {"ItemName": "Pen", "UnitCost": 10.0, "SalePrice": 20.0, "StockQuantity": 100},
+        ]
+        for item in sample_inventory:
+            if not db.query(Inventory).filter_by(ItemName=item["ItemName"]).first():
+                db.add(Inventory(**item))
 
         db.commit()
         print("Seed data inserted successfully.")
