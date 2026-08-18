@@ -1,20 +1,16 @@
-```gitignore
-# Environment variables
-.env
+# Build artifacts (regenerate via README Section 6)
+build/
+dist/
+*.spec
 
-# Python cache
+# Python
 __pycache__/
-*.py[cod]
-
-# Virtual environment
-.venv/
+*.pyc
 venv/
 
-# IDE files
-.vscode/
-.idea/
+# Secrets — never commit real credentials
+.env
 
-# OS files
-.DS_Store
+# OS/editor cruft
+.vscode/
 Thumbs.db
-```
